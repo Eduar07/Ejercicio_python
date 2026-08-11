@@ -166,8 +166,7 @@ def read_excel(file_path: Path) -> list[MasterEmployee]:
 
 
 
-
-def  read_master_excel(file_path: Path) -> list[EmployeeMetric]:
+def read_weekly_excel(file_path: Path) -> WeekData:
 
     try:
         workbook = openpyxl.load_workbook(file_path)
@@ -178,7 +177,6 @@ def  read_master_excel(file_path: Path) -> list[EmployeeMetric]:
             f"Could not open the file {file_path.name}"
         )
 
-
     try:
         worksheet = workbook[SHEET_NAME]
 
@@ -188,6 +186,7 @@ def  read_master_excel(file_path: Path) -> list[EmployeeMetric]:
             f"Sheet {SHEET_NAME} does not exist"
         )
 
+    week_start, week_end = parse_week_range(worksheet)
 
     headers = get_headers(worksheet)
 
@@ -195,10 +194,21 @@ def  read_master_excel(file_path: Path) -> list[EmployeeMetric]:
 
     column_map = create_column_map(headers)
 
-    employees = parse_employees(worksheet, column_map, file_path.name
+    employees = parse_employees(
+        worksheet,
+        column_map,
+        file_path.name
     )
 
-    return employees
+    week_data = WeekData(
+        week_start=week_start,
+        week_end=week_end,
+        year=week_start.year,
+        employees=employees
+    )
+
+    return week_data
+
 
 def parse_week_range(worksheet) -> tuple[date, date]:
 

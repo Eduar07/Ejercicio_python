@@ -23,11 +23,11 @@ def calculate_passive_status(passive_hours: float) -> str:
     return "green"
 
 
-def detect_cross_month(week_start, week_end):
+def detect_cross_month(week_start: date, week_end: date) -> bool:
     if week_start.month != week_end.month:
         return True
-    return False
 
+    return False
 
 def match_employees(weekly_employees: list[EmployeeMetric],
                     master_employess: list[MasterEmployee]) -> list[EmployeeMetric]:
