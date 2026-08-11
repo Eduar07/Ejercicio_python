@@ -1,6 +1,7 @@
 from domain.models import WeekData, EmployeeMetric, MasterEmployee
 import unicodedata
 from datetime import date
+
 from domain.constants import HOURS_PER_DAY_THRESHOLD, PASSIVE_HOURS_THRESHOLD
 
 
@@ -26,7 +27,6 @@ def calculate_passive_status(passive_hours: float) -> str:
 def detect_cross_month(week_start: date, week_end: date) -> bool:
     if week_start.month != week_end.month:
         return True
-
     return False
 
 def match_employees(weekly_employees: list[EmployeeMetric],

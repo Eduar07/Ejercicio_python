@@ -10,6 +10,7 @@ ERROR_MESSAGES = {
     "ERR010": "Invalid week format",
     "ERR011": "Inconsistent year",
     "ERR012": "Invalid date format",
+    "ERR013": "The weekly file crosses two months and requires manual processing",
 }
 
 
