@@ -6,12 +6,14 @@ try/except
 if + raise
 "The operation works, but does the result comply with the business/system rules?"
 '''
+from datetime import datetime, date
+
 from domain.models import WeekData, EmployeeMetric, MasterEmployee
 from pathlib import Path
 import openpyxl
 from infrastructure.config import SHEET_NAME
 from infrastructure.config import SHEET_MASTER, START_ROW_MASTER, HEADER_ROW_MASTER
-from infrastructure.config import START_ROW
+from infrastructure.config import START_ROW, WEEK_ROW
 from infrastructure.config import HEADER_ROW
 from domain.models import EmployeeMetric
 from domain.errors import ATError
@@ -197,3 +199,36 @@ def  read_master_excel(file_path: Path) -> list[EmployeeMetric]:
     )
 
     return employees
+
+def parse_week_range(worksheet) -> tuple[date, date]:
+
+    for row in worksheet.iter_rows(min_row=WEEK_ROW, max_row = WEEK_ROW):
+        for cell in row:
+            if cell.value != None and  "Week:" in cell.value:
+                week_text = cell.value
+                week_text = week_text.replace("Week:", "").strip()
+                week_start_text, week_end_text = week_text.split("-")
+                week_start_text = week_start_text.strip()
+                week_end_text = week_end_text.strip()
+                week_start = datetime.strptime(
+                    week_start_text,
+                    "%m/%d/%Y"
+                ).date()
+
+                week_end = datetime.strptime(
+                    week_end_text,
+                    "%m/%d/%Y"
+                ).date()
+
+                return week_start, week_end
+
+        raise ATError(
+        "ERR012",
+        "No se encontró el rango de semana en el archivo Excel"
+    )
+
+
+
+
+
+    
