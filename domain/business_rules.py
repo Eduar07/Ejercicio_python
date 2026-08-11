@@ -29,7 +29,7 @@ def detect_cross_month(week_start, week_end):
     return False
 
 
-def match_employess(weekly_employees: list[EmployeeMetric],
+def match_employees(weekly_employees: list[EmployeeMetric],
                     master_employess: list[MasterEmployee]) -> list[EmployeeMetric]:
 
     matched = []

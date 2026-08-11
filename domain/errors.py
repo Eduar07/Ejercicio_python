@@ -1,36 +1,36 @@
 '''
-Define como se reportan los problemas
+Defines how problems are reported
 '''
 ERROR_MESSAGES = {
-    "ERR001": "La carpeta no existe",
-    "ERR002": "No existen archivos Excel para procesar",
-    "ERR004": "No se pudo abrir el archivo Excel",
-    "ERR005": "La hoja esperada no existe",
-    "ERR006": "Las columnas del archivo Excel no coinciden con la estructura esperada",
-    "ERR010": "Formato de semana inválido",
-    "ERR011": "Año inconsistente",
-    "ERR012": "Formato de fecha inválido",
+    "ERR001": "The folder does not exist",
+    "ERR002": "There are no Excel files to process",
+    "ERR004": "Could not open the Excel file",
+    "ERR005": "The expected sheet does not exist",
+    "ERR006": "Excel file columns do not match the expected structure",
+    "ERR010": "Invalid week format",
+    "ERR011": "Inconsistent year",
+    "ERR012": "Invalid date format",
 }
 
 
 class ATError(Exception):
     def __init__(self, code, detail):
         self.code = code
-        self.mensaje = ERROR_MESSAGES.get(code, "Error desconocido")
+        self.message = ERROR_MESSAGES.get(code, "Unknown error")
         self.detail = detail
 
-        super().__init__(self.mensaje)
+        super().__init__(self.message)
 
 
     def __str__(self):
-        return f"[{self.code}] {self.mensaje}: {self.detail}"
+        return f"[{self.code}] {self.message}: {self.detail}"
 
 
 if __name__ == "__main__":
 
     error = ATError(
         "ERR001",
-        "AT 05.04 - 05.08.xlsx no existe en Input/"
+        "AT 05.04 - 05.08.xlsx does not exist in Input/"
     )
 
     print(error)
@@ -40,11 +40,11 @@ if __name__ == "__main__":
     print(error.detail)
 
 
-    print("\n--- Error inexistente ---")
+    print("\n--- Non-existent error ---")
 
     error2 = ATError(
         "ERR999",
-        "Código creado solamente para prueba"
+        "Code created only for testing"
     )
 
     print(error2)

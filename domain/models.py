@@ -1,5 +1,5 @@
 '''
-define la forma de los datos
+Defines the shape of the data
 '''
 
 from dataclasses import dataclass

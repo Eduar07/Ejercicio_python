@@ -1,21 +1,21 @@
 '''
 KeyError
-Es un error que aparece cuando intentas acceder a una clave que no existe.
+An error raised when you try to access a key that does not exist.
 try/except
-"¿Puede Python o una librería fallar haciendo esta operación?"
+"Can Python or a library fail while performing this operation?"
 if + raise
-"La operación funciona, pero ¿el resultado cumple las reglas del negocio/sistema?"
+"The operation works, but does the result comply with the business/system rules?"
 '''
 from domain.models import WeekData, EmployeeMetric, MasterEmployee
 from pathlib import Path
 import openpyxl
 from infrastructure.config import SHEET_NAME
-from infrastructure.config import SHEET_MASTER,START_ROW_MASTER,HEADER_ROW_MASTER
+from infrastructure.config import SHEET_MASTER, START_ROW_MASTER, HEADER_ROW_MASTER
 from infrastructure.config import START_ROW
 from infrastructure.config import HEADER_ROW
 from domain.models import EmployeeMetric
 from domain.errors import ATError
-from infrastructure.config import WEEKLY_COLUMNS,MASTER_COLUMNS
+from infrastructure.config import WEEKLY_COLUMNS, MASTER_COLUMNS
 
 
 
@@ -23,7 +23,7 @@ def validate_headers(headers: list[str]) -> None:
     if headers != WEEKLY_COLUMNS:
         raise ATError(
             "ERR006",
-            "Las columnas del archivo Excel no coinciden con la estructura esperada"
+            "Excel file columns do not match the expected structure"
         )
 
 
@@ -31,7 +31,7 @@ def validate_master_headers(headers_master: list[str]) -> None:
     if headers_master != MASTER_COLUMNS:
         raise ATError(
             "ERR006",
-            "Las columnas del archivo Excel no coinciden con la estructura esperada"
+            "Excel file columns do not match the expected structure"
         )
 
 
@@ -45,7 +45,7 @@ def get_headers(worksheet) -> list[str]:
 
 def get_master_headers(worksheetmaster) -> list[str]:
     headers_master = []
-    for row in worksheetmaster.iter_rows(min_row = HEADER_ROW_MASTER, max_row= HEADER_ROW_MASTER):
+    for row in worksheetmaster.iter_rows(min_row=HEADER_ROW_MASTER, max_row=HEADER_ROW_MASTER):
         for cell in row:
             headers_master.append(cell.value)
     return headers_master
@@ -57,7 +57,7 @@ def create_column_map(headers: list[str]) -> dict[str, int]:
 
     return column_map
 
-def create_column_map_masater(header_master: list[str] -> dict[str, int]):
+def create_column_map_masater(header_master: list[str]) -> dict[str, int]:
     column_map_master = {}
     for index, header in enumerate(header_master):
         column_map_master[header] = index
@@ -66,13 +66,22 @@ def create_column_map_masater(header_master: list[str] -> dict[str, int]):
 
 
 
-def parse_employees( worksheet,column_map: dict[str, int],source_file: str) -> list[EmployeeMetric]:
+def parse_employees(
+    worksheet,
+    column_map: dict[str, int],
+    source_file: str ) -> list[EmployeeMetric]:
+
     employees = []
 
     for row in worksheet.iter_rows(min_row=START_ROW):
 
+        name = row[column_map["Name"]].value
+
+        if name is None:
+            continue
+
         employee = EmployeeMetric(
-            name=row[column_map["Name"]].value,
+            name=name,
             department=row[column_map["Department"]].value,
             productive_active_hours=row[column_map["Productive Active Hrs"]].value,
             productive_passive_hours=row[column_map["Productive Passive Hrs"]].value,
@@ -89,21 +98,28 @@ def parse_employees( worksheet,column_map: dict[str, int],source_file: str) -> l
     return employees
 
 
-def parse_master_employees(worksheetmaster, column_map:dict[str, int]) -> list[MasterEmployee]:
+def parse_master_employees(
+    worksheetmaster,
+    column_map_master: dict[str, int]) -> list[MasterEmployee]:
 
     master = []
 
     for row in worksheetmaster.iter_rows(min_row=START_ROW_MASTER):
 
-            master_employee = MasterEmployee(
-                employee_id=row[column_map["EmployeeID"]].value,
-                name=row[column_map["Name"]].value,
-                email=row[column_map["Email"]].value,
-                status=row[column_map["Status"]].value
-            )
-    
-            master.append(master_employee)
-    
+        employee_id = row[column_map_master["EmployeeID"]].value
+
+        if employee_id is None:
+            continue
+
+        master_employee = MasterEmployee(
+            employee_id=employee_id,
+            name=row[column_map_master["Name"]].value,
+            email=row[column_map_master["Email"]].value,
+            status=row[column_map_master["Status"]].value
+        )
+
+        master.append(master_employee)
+
     return master
 
 
@@ -118,7 +134,7 @@ def read_excel(file_path: Path) -> list[MasterEmployee]:
     except Exception:
         raise ATError(
             "ERR004",
-            f"No se pudo abrir el archivo {file_path.name}"
+            f"Could not open the file {file_path.name}"
         )
 
 
@@ -128,15 +144,15 @@ def read_excel(file_path: Path) -> list[MasterEmployee]:
     except KeyError:
         raise ATError(
             "ERR005",
-            f"La hoja {SHEET_MASTER} no existe"
+            f"Sheet {SHEET_MASTER} does not exist"
         )
 
 
-    headers = get_headers(worksheetmaster)
+    headers_master = get_headers(worksheetmaster)
 
-    validate_headers(headers)
+    validate_headers(headers_master)
 
-    column_map = create_column_map(headers)
+    column_map = create_column_map(headers_master)
 
     employees = parse_employees(
         worksheetmaster,
@@ -149,7 +165,7 @@ def read_excel(file_path: Path) -> list[MasterEmployee]:
 
 
 
-def read_excel(file_path: Path) -> list[EmployeeMetric]:
+def  read_master_excel(file_path: Path) -> list[EmployeeMetric]:
 
     try:
         workbook = openpyxl.load_workbook(file_path)
@@ -157,7 +173,7 @@ def read_excel(file_path: Path) -> list[EmployeeMetric]:
     except Exception:
         raise ATError(
             "ERR004",
-            f"No se pudo abrir el archivo {file_path.name}"
+            f"Could not open the file {file_path.name}"
         )
 
 
@@ -167,7 +183,7 @@ def read_excel(file_path: Path) -> list[EmployeeMetric]:
     except KeyError:
         raise ATError(
             "ERR005",
-            f"La hoja {SHEET_NAME} no existe"
+            f"Sheet {SHEET_NAME} does not exist"
         )
 
 
@@ -177,10 +193,7 @@ def read_excel(file_path: Path) -> list[EmployeeMetric]:
 
     column_map = create_column_map(headers)
 
-    employees = parse_employees(
-        worksheet,
-        column_map,
-        file_path.name
+    employees = parse_employees(worksheet, column_map, file_path.name
     )
 
     return employees

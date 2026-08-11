@@ -1,6 +1,6 @@
 '''
-Constantes de negocio: metas, umbrales y reglas propias del dominio.
-Extraídas de config.py para que domain/ no dependa de infrastructure/.
+Business constants: goals, thresholds and domain-specific rules.
+Extracted from config.py so that domain/ does not depend on infrastructure/.
 '''
 
 GOALS = {

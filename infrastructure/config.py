@@ -1,14 +1,14 @@
 '''
-guarda los numeros y nombres que pueden cambiar
+Stores numbers and names that may change
 from pathlib import Path
-Path es la clase.
-Path("data") es una instancia de esa clase (el objeto creado).
-ruta es la variable que guarda esa instancia.
-"data" no es "el objeto", es un argumento (string) que pasas al constructor.
+Path is the class.
+Path("data") is an instance of that class (the object created).
+route is the variable that stores that instance.
+"data" is not "the object", it is an argument (string) you pass to the constructor.
 '''
 
 from pathlib import Path
-'''config, argumentos de entrada'''
+'''config, input arguments'''
 PROJECT_ROOT = Path(__file__).parent.parent
 
 PATHS = {
@@ -43,6 +43,18 @@ MASTER_COLUMNS = [
     "Status"
 ]
 
+OUTPUT_COLUMNS = [
+    "Name",
+    "Department",
+    "Productive Active Hrs",
+    "Productive Passive Hrs",
+    "Total Productive Hrs",
+    "Active Days",
+    "GOAL",
+    "Productive Hrs/Day",
+    "Comments"
+]
+
 
 COLORS = {
     "green": "63BE7B",
@@ -60,3 +72,4 @@ HEADER_ROW = 3
 START_ROW = 4
 HEADER_ROW_MASTER = 1
 START_ROW_MASTER = 2
+OUTPUT_SHEET_NAME = "Productive + Passive"
