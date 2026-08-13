@@ -3,9 +3,10 @@ Manage folders and files
 '''
 
 import shutil
-
+import openpyxl
+from adapters.excel_write import create_workbook
 from domain.errors import ATError
-from infrastructure.config import PATHS
+from infrastructure.config import PATHS,OUTPUT_SHEET_NAME
 from pathlib import Path
 
 
@@ -54,3 +55,6 @@ def copy_weekly_to_output(source: Path, year: int, month: int) -> Path:
 def ensure_directories() -> None:
     for folder in PATHS.values():
         folder.mkdir(parents=True, exist_ok=True)
+
+def output_exists(file_path: Path) -> bool:
+    return file_path.exists()

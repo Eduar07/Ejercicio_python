@@ -202,3 +202,5 @@ def parse_week_range(worksheet) -> tuple[date, date]:
                 return week_start, week_end
 
         raise ATError("ERR012", "No se encontró el rango de semana en el archivo Excel")
+
+    

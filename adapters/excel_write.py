@@ -21,6 +21,11 @@ def create_workbook():
 
     return workbook, worksheet
 
+def load_output_workbook(file_path: Path):
+    workbook = openpyxl.load_workbook(file_path)
+    worksheet = workbook[OUTPUT_SHEET_NAME]
+    return workbook, worksheet
+
 
 def write_week_range(worksheet, week_start: date, week_end: date) -> None:
     week_text = (
@@ -145,3 +150,8 @@ def apply_table_borders(worksheet, employees: list[EmployeeMetric]) -> None:
     for row in range(WEEK_ROW_OUTPUT, last_row + 1):
         for column in range(1, len(OUTPUT_COLUMNS) + 1):
             worksheet.cell(row=row, column=column).border = thin_border
+
+def get_next_block_start_row(worksheet) -> int:
+    if worksheet.max_row <= 1:
+        return WEEK_ROW_OUTPUT
+    return worksheet.max_row + 6
