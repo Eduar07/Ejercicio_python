@@ -14,27 +14,35 @@ from adapters.excel_write import (
     apply_table_borders,
     get_next_block_start_row,
     load_output_workbook,
+    week_already_exists,
     save_workbook,
 )
 
 
 def main() -> None:
-
+    
     weekly_file = Path("data/Input/AT 05.04 - 05.08.xlsx")
-
+    
     master_file = Path("data/Input/AT_Employees.xlsx")
 
     output_file = Path("data/Output/result.xlsx")
 
     week_data = process_metric(weekly_file, master_file)
+    
 
     if output_exists(output_file):
-        
+
         workbook, worksheet = load_output_workbook(output_file)
-        
+
     else:
-        
         workbook, worksheet = create_workbook()
+        
+
+
+    if week_already_exists(worksheet, week_data.week_start, week_data.week_end):
+        print("Week already exists. Nothing to process.")
+        
+        return
 
     start_row = get_next_block_start_row(worksheet)
 

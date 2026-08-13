@@ -202,3 +202,19 @@ def get_next_block_start_row(worksheet) -> int:
     if worksheet.max_row <= 1:
         return WEEK_ROW_OUTPUT
     return worksheet.max_row + 4
+
+
+def week_already_exists(worksheet, week_start: date, week_end: date) -> bool:
+
+    expected_text = (
+        f"Week: "
+        f"{week_start.strftime('%m/%d/%Y')} - "
+        f"{week_end.strftime('%m/%d/%Y')}"
+    )
+
+    for row in worksheet.iter_rows():
+        for cell in row:
+            if cell.value == expected_text:
+                return True
+
+    return False
