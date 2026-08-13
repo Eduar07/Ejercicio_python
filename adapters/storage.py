@@ -1,7 +1,6 @@
 '''
 Manage folders and files
 '''
-
 import shutil
 import openpyxl
 from adapters.excel_write import create_workbook
