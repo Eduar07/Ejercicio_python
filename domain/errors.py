@@ -11,6 +11,7 @@ ERROR_MESSAGES = {
     "ERR011": "Inconsistent year",
     "ERR012": "Invalid date format",
     "ERR013": "The weekly file crosses two months and requires manual processing",
+    "ERR014": "Could not save the Excel file",
 }
 
 

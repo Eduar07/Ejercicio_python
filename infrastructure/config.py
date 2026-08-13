@@ -18,17 +18,13 @@ PATHS = {
     "parametric" : PROJECT_ROOT / "data" / "Parametric_Files"
 }
 
-SHEET_NAME = "Prod + Pass Hours All Dept"
-SHEET_MASTER = "HOJA 1"
-
-
 DATE_FORMAT = "%m/%d/%Y"
 
 WEEKLY_COLUMNS = [
     "Name",
     "Department",
     "Productive Active Hrs",
-    "Productive Passive Hrs",
+    "Productive passive Hrs",
     "Total Productive Hrs",
     "Active Days",
     "GOAL",
@@ -68,9 +64,44 @@ STATUSES = {
     "pending": "PENDING"
 }
 
+
+SHEET_NAME = "Prod + Pass Hours All Dept"
+SHEET_MASTER = "Employees"
+OUTPUT_SHEET_NAME = "Productive + Passive"
 HEADER_ROW = 3
 START_ROW = 4
 HEADER_ROW_MASTER = 1
 START_ROW_MASTER = 2
-OUTPUT_SHEET_NAME = "Productive + Passive"
 WEEK_ROW = 2
+OUTPUT_START_ROW = 7
+PASSIVE_COLUMN = 4
+HOURS_DAY_COLUMN = 8
+PRODUCTIVE_ACTIVE_COLUMN = 3
+TOTAL_PRODUCTIVE_COLUMN = 5
+NAME_COLUMN = 1
+DEPARTMENT_COLUMN = 2
+ACTIVE_DAYS_COLUMN = 6
+GOAL_COLUMN = 7
+COMMENTS_COLUMN = 9
+WEEK_ROW_OUTPUT = 5
+
+YELLOW_COLUMNS = {GOAL_COLUMN, COMMENTS_COLUMN}
+BOLD_BLACK_COLUMNS = {NAME_COLUMN, DEPARTMENT_COLUMN}
+
+
+COLUMN_WIDTHS = {
+    NAME_COLUMN:27,
+    DEPARTMENT_COLUMN: 32,
+    PRODUCTIVE_ACTIVE_COLUMN: 20,
+    PASSIVE_COLUMN: 20,
+    TOTAL_PRODUCTIVE_COLUMN: 20,
+    ACTIVE_DAYS_COLUMN: 11,
+    GOAL_COLUMN: 8,
+    HOURS_DAY_COLUMN: 20,
+    COMMENTS_COLUMN: 42,
+}
+
+BLUE_FILL_COLOR = "4472C4"
+YELLOW_FILL_COLOR = "ffd555"
+
+HEADER_ROW_OUTPUT = 6

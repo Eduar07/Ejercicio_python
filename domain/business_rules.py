@@ -1,4 +1,4 @@
-from domain.models import WeekData, EmployeeMetric, MasterEmployee
+from domain.model import WeekData, EmployeeMetric, MasterEmployee
 import unicodedata
 from datetime import date
 
@@ -12,13 +12,17 @@ def normalize_name(name: str) -> str:
     )
     return name
 
-def calculate_productive_color(hours_per_day: float) -> str:
+def calculate_productive_color(hours_per_day: float | str) -> str:
+    if hours_per_day == "#N/A":
+        return "none"
     if hours_per_day >= HOURS_PER_DAY_THRESHOLD:
         return "green"
     return "red"
 
 
-def calculate_passive_status(passive_hours: float) -> str:
+def calculate_passive_status(passive_hours: float | str) -> str:
+    if passive_hours == "#N/A":
+        return "none"
     if passive_hours >= PASSIVE_HOURS_THRESHOLD:
         return "red"
     return "green"

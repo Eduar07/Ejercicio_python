@@ -1,10 +1,21 @@
 from pathlib import Path
+from domain.model import WeekData
+from domain.errors import ATError
 
-from domain.models import EmployeeMetric
-from adapters.excel_reader import read_weekly_excel, read_master_excel
-from domain.business_rules import match_employees, apply_business_rules,detect_cross_month
+from adapters.excel_reader import (
+    read_weekly_excel,
+    read_excel
+)
 
-def process_metric( weekly_file: Path, master_file: Path) -> list[EmployeeMetric]:
+from domain.business_rules import (
+    match_employees,
+    apply_business_rules,
+    detect_cross_month
+)
+
+
+def process_metric( weekly_file: Path, master_file: Path
+) -> WeekData:
 
     weekly_data = read_weekly_excel(weekly_file)
 
@@ -19,15 +30,15 @@ def process_metric( weekly_file: Path, master_file: Path) -> list[EmployeeMetric
             "The weekly file crosses two months"
         )
 
-    master_employees = read_master_excel(master_file)
+    master_employees = read_excel(master_file)
 
     matched_employees = match_employees(
         weekly_data.employees,
         master_employees
     )
 
-    employees = apply_business_rules(
+    weekly_data.employees = apply_business_rules(
         matched_employees
     )
 
-    return employees
+    return weekly_data
