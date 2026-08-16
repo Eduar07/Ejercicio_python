@@ -1,6 +1,14 @@
 from pathlib import Path
+from datetime import datetime
+
 from application.process_weekly_metrics import process_metric
-from adapters.storage import output_exists
+
+from adapters.storage import (
+    output_exists,
+    get_output_path,
+)
+
+from adapters.logger import write_log_entry
 
 from adapters.excel_write import (
     create_workbook,
@@ -18,51 +26,109 @@ from adapters.excel_write import (
     save_workbook,
 )
 
+from domain.errors import ATError
+from domain.model import LogEntry
+
 
 def main() -> None:
-    
-    weekly_file = Path("data/Input/AT 05.29 - 06.03.xlsx")
-    
+
+    weekly_file = Path("data/Input/AT 05.04 - 05.08.xlsx")
     master_file = Path("data/Input/AT_Employees.xlsx")
 
-    output_file = Path("data/Output/result.xlsx")
+    try:
 
-    week_data = process_metric(weekly_file, master_file)
-    
+        week_data = process_metric(
+            weekly_file,
+            master_file,
+        )
 
-    if output_exists(output_file):
+        output_file = get_output_path(
+            week_data.week_start.year,
+            week_data.week_start.month,
+        )
 
-        workbook, worksheet = load_output_workbook(output_file)
+        if output_exists(output_file):
+            workbook, worksheet = load_output_workbook(output_file)
+        else:
+            workbook, worksheet = create_workbook()
 
-    else:
-        workbook, worksheet = create_workbook()
-        
+        if week_already_exists(
+            worksheet,
+            week_data.week_start,
+            week_data.week_end,
+        ):
+            print("Week already exists. Nothing to process.")
+            return
 
+        start_row = get_next_block_start_row(worksheet)
 
-    if week_already_exists(worksheet, week_data.week_start, week_data.week_end):
-        print("Week already exists. Nothing to process.")
-        
-        return
+        write_week_range(
+            worksheet,
+            week_data.week_start,
+            week_data.week_end,
+            start_row,
+        )
 
-    start_row = get_next_block_start_row(worksheet)
+        write_headers(
+            worksheet,
+            start_row,
+        )
 
-    write_week_range(worksheet, week_data.week_start, week_data.week_end, start_row)
+        apply_column_colors(
+            worksheet,
+            start_row,
+        )
 
-    write_headers(worksheet, start_row)
+        apply_header_font(
+            worksheet,
+            start_row,
+        )
 
-    apply_column_colors(worksheet, start_row)
+        set_column_width(worksheet)
 
-    apply_header_font(worksheet, start_row)
+        write_employees(
+            worksheet,
+            week_data.employees,
+            start_row,
+        )
 
-    set_column_width(worksheet)
+        apply_colors(
+            worksheet,
+            week_data.employees,
+            start_row,
+        )
 
-    write_employees(worksheet, week_data.employees, start_row)
+        apply_table_borders(
+            worksheet,
+            week_data.employees,
+            start_row,
+        )
 
-    apply_colors(worksheet, week_data.employees, start_row)
+        save_workbook(
+            workbook,
+            output_file,
+        )
 
-    apply_table_borders(worksheet, week_data.employees, start_row)
+    except ATError as error:
 
-    save_workbook(workbook, output_file)
+        if error.code == "ERR015":
+            status = "SUCCESS"
+        elif error.code == "ERR013":
+            status = "PENDING"
+        else:
+            status = "ERROR"
+
+        log_entry = LogEntry(
+            source_file=weekly_file.name,
+            execution_date=datetime.now(),
+            status=status,
+            error_message=error.detail,
+            error_code=error.code,
+        )
+
+        write_log_entry(log_entry)
+
+        raise
 
 
 if __name__ == "__main__":

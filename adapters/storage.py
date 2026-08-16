@@ -3,7 +3,6 @@ Manage folders and files
 '''
 import shutil
 import openpyxl
-from adapters.excel_write import create_workbook
 from domain.errors import ATError
 from infrastructure.config import PATHS,OUTPUT_SHEET_NAME
 from pathlib import Path
@@ -34,12 +33,14 @@ def get_employees_path() -> Path:
 
 
 def get_output_path(year: int, month: int) -> Path:
-    output_folder = PATHS["ouput"] /str(year)/ f"{month:02d}"
+    output_folder = PATHS["output"] /str(year)/ f"{month:02d}"
     output_folder.mkdir(parents=True, exist_ok=True)
     return output_folder / f"AT_Metrics_{year}-{month:02d}.xlsx"
 
 def get_log_path(year: int) -> Path:
-    return PATHS['logs']/ str(year)/ "AT_Process_Log.xlsx"
+    log_folder = PATHS['logs'] / str(year)
+    log_folder.mkdir(parents=True, exist_ok=True)
+    return log_folder / "AT_Process_Log.xlsx"
 
 
 def copy_weekly_to_output(source: Path, year: int, month: int) -> Path:
@@ -57,3 +58,19 @@ def ensure_directories() -> None:
 
 def output_exists(file_path: Path) -> bool:
     return file_path.exists()
+
+def get_next_month_output_path(
+        year:int, month:int) -> Path:
+
+    next_year = year
+    next_month = month + 1
+
+    if next_month == 13:
+        next_month = 1
+        next_year += 1
+
+    output_folder = PATHS["output"] / str(next_year) / f"{next_month:02d}"
+
+    output_folder.mkdir(parents=True, exist_ok=True)
+
+    return output_folder / f"AT_Metrics_{next_year}-{next_month:02d}.xlsx"

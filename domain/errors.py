@@ -12,6 +12,10 @@ ERROR_MESSAGES = {
     "ERR012": "Invalid date format",
     "ERR013": "The weekly file crosses two months and requires manual processing",
     "ERR014": "Could not save the Excel file",
+    "ERR015": "Cross-month templates already exist",
+    "ERR020": "Could not authenticate with Graph",
+    "ERR021": "Could not list files from SharePoint",
+    "ERR022": "Could not download file from SharePoint",
 }
 
 

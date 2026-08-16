@@ -30,18 +30,11 @@ class WeekData:
 
 @dataclass
 class LogEntry:
-
-    correlation_id: str
     source_file: str
     execution_date: datetime
     status: str
-    records_processed: int
     error_message: str
-    stage: str
-    level: str
     error_code: str
-    week_range: str
-    duration_ms: int
 
 @dataclass
 class MasterEmployee:

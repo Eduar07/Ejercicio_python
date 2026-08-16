@@ -218,3 +218,26 @@ def week_already_exists(worksheet, week_start: date, week_end: date) -> bool:
                 return True
 
     return False
+
+
+def create_empty_week_block(
+    worksheet,
+    week_start: date,
+    week_end: date,
+    placeholder_employees: list[EmployeeMetric],
+) -> bool:
+
+    if week_already_exists(worksheet, week_start, week_end):
+        return
+
+    start_row = get_next_block_start_row(worksheet)
+
+    write_week_range(worksheet, week_start, week_end, start_row)
+    write_headers(worksheet, start_row)
+    apply_column_colors(worksheet, start_row)
+    apply_header_font(worksheet, start_row)
+    set_column_width(worksheet)
+    write_employees(worksheet, placeholder_employees, start_row)
+    apply_table_borders(worksheet, placeholder_employees, start_row)
+
+    return True

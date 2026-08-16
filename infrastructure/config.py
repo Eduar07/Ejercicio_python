@@ -101,6 +101,14 @@ COLUMN_WIDTHS = {
     COMMENTS_COLUMN: 42,
 }
 
+LOG_COLUMNS = [
+    "Source File",
+    "Execution Date",
+    "Status",
+    "Error Message",
+    "Error Code",
+]
+
 BLUE_FILL_COLOR = "4472C4"
 YELLOW_FILL_COLOR = "ffd555"
 

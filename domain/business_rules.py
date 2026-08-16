@@ -1,8 +1,10 @@
 from domain.model import WeekData, EmployeeMetric, MasterEmployee
 import unicodedata
 from datetime import date
+from datetime import timedelta
 
-from domain.constants import HOURS_PER_DAY_THRESHOLD, PASSIVE_HOURS_THRESHOLD
+
+from domain.constants import HOURS_PER_DAY_THRESHOLD, PASSIVE_HOURS_THRESHOLD,DEPARTMENT,GOALS
 
 
 def normalize_name(name: str) -> str:
@@ -66,3 +68,34 @@ def apply_business_rules(
         )
 
     return employees
+
+
+def build_placeholder_employees(master_employees: list[MasterEmployee]) -> list[EmployeeMetric]:
+    placeholders = []
+
+    for master in master_employees:
+        employee = EmployeeMetric(
+            name=master.name,
+            department=DEPARTMENT,
+            productive_active_hours=None,
+            productive_passive_hours=None,
+            total_hours=None,
+            active_days=None,
+            goal=GOALS["weekly"],
+            hours_per_day=None,
+            comments="",
+            source_file="",
+        )
+        placeholders.append(employee)
+
+    return placeholders
+
+from datetime import timedelta
+
+def split_cross_month_range(
+    week_start: date, week_end: date
+) -> tuple[date, date, date, date]:
+    next_month_first_day = date(week_end.year, week_end.month, 1)
+    closing_end = next_month_first_day - timedelta(days=1)
+    opening_start = next_month_first_day
+    return week_start, closing_end, opening_start, week_end
