@@ -26,35 +26,146 @@ Tiene **dos modos de origen/destino de archivos**, pensados como capas intercamb
 
 ---
 
-## Diagrama de flujo (modo local, que es el que hoy corre de punta a punta)
+## Mapa general de módulos (todos, incluyendo Graph API sin conectar)
 
 ```mermaid
 flowchart TD
-    A["data/Input/*.xlsx<br/>(archivo semanal + maestro)"] --> B["adapters/storage.py<br/>localiza rutas y archivos"]
-    B --> C["adapters/excel_reader.py<br/>lee .xlsx → dataclasses"]
-    C --> D["domain/model.py<br/>EmployeeMetric, WeekData, MasterEmployee"]
-    D --> E["domain/business_rules.py<br/>match_employees + apply_business_rules"]
-    E -->|"usa umbrales de"| F["domain/constants.py"]
-    C -->|"usa nombres de hoja/columnas de"| G["infrastructure/config.py"]
-    B -->|"usa rutas de"| G
-    E --> H["application/process_weekly_metrics.py<br/>process_metric (caso de uso)"]
-    H --> I["adapters/excel_write.py<br/>escribe bloque semanal en Output"]
-    I --> J["data/Output/AT_Metrics_&lt;año&gt;-&lt;mes&gt;.xlsx"]
-    H -->|"si algo falla"| K["domain/errors.py<br/>ATError"]
-    K --> L["adapters/logger.py<br/>write_log_entry"]
-    L --> M["data/Logs/&lt;año&gt;/AT_Process_Log.xlsx"]
-    N["main.py<br/>composition root"] -.orquesta.-> B
-    N -.orquesta.-> C
-    N -.orquesta.-> H
-    N -.orquesta.-> I
-    N -.orquesta.-> L
+    subgraph DOMAIN["domain/  (núcleo — sin dependencias externas al proyecto)"]
+        MODEL["model.py<br/>EmployeeMetric, WeekData,<br/>LogEntry, MasterEmployee"]
+        CONST["constants.py<br/>GOALS, umbrales"]
+        ERRORS["errors.py<br/>ATError, ERROR_MESSAGES"]
+        RULES["business_rules.py<br/>match_employees,<br/>apply_business_rules"]
+    end
+
+    subgraph INFRA["infrastructure/"]
+        CONFIG["config.py<br/>rutas, columnas, colores"]
+    end
+
+    subgraph ADLOCAL["adapters/  —  modo local (activo hoy)"]
+        STORAGE["storage.py"]
+        READER["excel_reader.py"]
+        WRITER["excel_write.py"]
+        LOGGER["logger.py"]
+    end
+
+    subgraph ADGRAPH["adapters/  —  modo Graph API (código aislado, NO importado por nadie)"]
+        AUTH["graph_auth.py"]
+        SPCLIENT["sharepoint_client.py"]
+    end
+
+    subgraph APP["application/"]
+        PROCESS["process_weekly_metrics.py<br/>process_metric"]
+    end
+
+    MAIN["main.py<br/>composition root"]
+
+    RULES --> CONST
+    RULES --> MODEL
+    READER --> MODEL
+    READER --> ERRORS
+    READER --> CONFIG
+    STORAGE --> ERRORS
+    STORAGE --> CONFIG
+    WRITER --> MODEL
+    WRITER --> ERRORS
+    WRITER --> CONFIG
+    LOGGER --> MODEL
+    LOGGER --> STORAGE
+    LOGGER --> CONFIG
+    SPCLIENT --> ERRORS
+    AUTH --> ERRORS
+
+    PROCESS --> READER
+    PROCESS --> WRITER
+    PROCESS --> STORAGE
+    PROCESS --> RULES
+    PROCESS --> MODEL
+    PROCESS --> ERRORS
+
+    MAIN --> PROCESS
+    MAIN --> STORAGE
+    MAIN --> WRITER
+    MAIN --> LOGGER
+    MAIN --> ERRORS
+    MAIN --> MODEL
+
+    MAIN -.->|"todavía no importa"| AUTH
+    MAIN -.->|"todavía no importa"| SPCLIENT
+
+    style ADGRAPH stroke-dasharray: 5 5
 ```
 
-**Arquitectura hexagonal**: las flechas de dependencia de código (no de datos) solo apuntan
-*hacia adentro*. `domain/` no importa nada de `adapters/` ni `infrastructure/`; `adapters/` sí
-puede importar de `domain/` e `infrastructure/`. Esto es lo que permite que el modo Graph API
-(sección final) pueda existir como un adapter alternativo sin tocar una sola línea de
-`domain/`.
+Este diagrama muestra **todas** las dependencias de `import` reales del proyecto, módulo por
+módulo. Las flechas sólidas son imports que existen hoy en el código; las dos flechas punteadas
+hacia `graph_auth.py`/`sharepoint_client.py` (recuadro con borde discontinuo) representan que
+**nada las importa todavía** — es código de adapter funcional pero desconectado, no una mentira
+de diagrama optimista. Nótese que `domain/` (recuadro superior) no recibe ninguna flecha entrante
+desde `adapters/`, `infrastructure/` ni `application/` — solo emite hacia sí mismo — que es la
+prueba visual de que la regla hexagonal ("las dependencias solo apuntan hacia adentro") se
+cumple sin excepciones.
+
+---
+
+## Secuencia de ejecución completa: modo local vs. Graph API
+
+```mermaid
+sequenceDiagram
+    participant U as "Operador / cron"
+    participant Main as main.py
+    participant Storage as storage.py
+    participant Reader as excel_reader.py
+    participant Rules as business_rules.py
+    participant Writer as excel_write.py
+    participant Logger as logger.py
+    participant Auth as graph_auth.py
+    participant SP as sharepoint_client.py
+
+    U->>Main: ejecuta python main.py
+    activate Main
+
+    alt Modo local (implementado y activo hoy)
+        Main->>Reader: read_weekly_excel(weekly_file)
+        Reader-->>Main: WeekData
+        Main->>Reader: read_excel(master_file)
+        Reader-->>Main: lista de MasterEmployee
+        Main->>Rules: match_employees + apply_business_rules
+        Rules-->>Main: lista de EmployeeMetric con colores
+        Main->>Storage: get_output_path / week_already_exists
+        Storage-->>Main: ruta de salida y booleano
+        alt La semana ya existe en el Output
+            Main-->>U: "Week already exists. Nothing to process."
+        else Semana nueva
+            Main->>Writer: write_week_range ... save_workbook
+            Writer-->>Main: Excel de salida actualizado
+        end
+    else Modo Graph API / SharePoint (diseño objetivo, NO conectado todavía)
+        Note over Main,SP: Esta rama no existe en el código actual; se documenta como el flujo que tendría un futuro main_remote.py
+        Main->>Auth: get_access_token(tenant_id, client_id, client_secret)
+        Auth-->>Main: access_token
+        Main->>SP: list_input_files_graph(context, folder_path)
+        SP-->>Main: lista de archivos (metadatos JSON)
+        Main->>SP: download_file_graph(context, item_id)
+        SP-->>Main: BytesIO
+        Main->>Reader: read_weekly_excel(BytesIO)
+        Reader-->>Main: WeekData
+        Main->>Rules: match_employees + apply_business_rules
+        Rules-->>Main: lista de EmployeeMetric con colores
+        Main->>SP: upload_file_graph(context, folder_path, file_name, bytes)
+        SP-->>Main: 201 Created
+    end
+
+    Main->>Logger: write_log_entry(LogEntry) [solo si hubo ATError]
+    Logger-->>Main: log persistido en Excel anual
+    deactivate Main
+```
+
+El bloque `alt`/`else` superior separa las dos rutas posibles al mismo nivel de la secuencia: la
+rama "Modo local" refleja línea por línea lo que `main.py` hace hoy; la rama "Modo Graph API" es
+**hipotética** — usa las funciones reales de `graph_auth.py`/`sharepoint_client.py`, pero ningún
+`main.py` las invoca todavía en ese orden. Nótese además el detalle final: `Logger` solo se
+invoca dentro del bloque `except ATError` de `main.py` — una corrida exitosa "normal" (semana
+nueva, sin cruce de mes) hoy **no genera ninguna entrada de log**, solo los casos que pasan por
+una excepción `ATError` (incluido el caso `ERR015`, que se registra como `"SUCCESS"`).
 
 ---
 
@@ -567,6 +678,53 @@ puede depender de ambos).
 Entrada: dos `Path` (semanal + maestro). Salida: `WeekData` completamente procesado, listo para
 `excel_write.py` — o una excepción `ATError` que interrumpe el flujo (capturada en `main.py`).
 
+### Diagrama de estados: ciclo de vida de un archivo semanal
+Ningún módulo declara esto como una máquina de estados explícita en código (no hay un `enum` de
+estados en ninguna parte), pero el comportamiento combinado de `process_metric`,
+`handle_cross_month`, `week_already_exists` y el `except ATError` de `main.py` sí define uno de
+forma implícita. Visualizarlo ayuda a entender por qué existen tantos códigos `ATError`
+distintos para lo que, a simple vista, parece "una sola operación de leer y escribir":
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pendiente: archivo .xlsx aparece en data/Input/
+
+    Pendiente --> Leido: read_weekly_excel() exitoso
+    Pendiente --> Error: ATError ERR004/ERR005/ERR006/ERR012
+
+    state cruza_mes <<choice>>
+    Leido --> cruza_mes
+
+    cruza_mes --> PlantillasCreadas: cruza de mes y no existían plantillas
+    cruza_mes --> PlantillasYaExistian: cruza de mes y ya existían
+    cruza_mes --> Emparejado: no cruza de mes
+
+    PlantillasCreadas --> Registrado: LogEntry status PENDING (ERR013)
+    PlantillasYaExistian --> Registrado: LogEntry status SUCCESS (ERR015)
+
+    Emparejado --> ReglasAplicadas: match_employees() + apply_business_rules()
+
+    state semana_existe <<choice>>
+    ReglasAplicadas --> semana_existe
+
+    semana_existe --> Omitido: week_already_exists == True
+    semana_existe --> Escrito: week_already_exists == False
+
+    Escrito --> [*]: bloque semanal guardado en Output (sin LogEntry hoy)
+    Omitido --> [*]: "Week already exists. Nothing to process." (sin LogEntry hoy)
+
+    Error --> Registrado: LogEntry status ERROR
+    Registrado --> [*]
+```
+
+Los dos rombos de decisión (`cruza_mes`, `semana_existe`) son los dos puntos donde el sistema
+decide **no** seguir el camino automático: un cruce de mes siempre corta el flujo para revisión
+manual (nunca llega a `Escrito`), y una semana duplicada simplemente se omite. Nótese la asimetría
+marcada en los dos estados terminales de la izquierda: **solo los caminos que pasan por una
+`ATError` generan una entrada de log** — un archivo que se procesa y escribe con éxito en su
+primer intento (`Escrito`) hoy termina el flujo sin dejar ningún rastro en `AT_Process_Log.xlsx`,
+algo a tener en cuenta si se necesita auditar también las corridas exitosas "silenciosas".
+
 ### Por qué se diseñó así
 `process_metric` es deliberadamente la **única** función que un `main.py` necesita llamar para
 obtener el resultado de negocio completo — todo el detalle de "leer, matchear, aplicar reglas"
@@ -820,16 +978,18 @@ progreso**, no terminado:
    `sharepoint_client.py` fallaría con 401 sin reintento automático.
 
 ### Qué falta para conectar este modo (próximo paso, no implementado)
-1. Corregir los cuatro problemas listados arriba.
-2. Agregar `"ERR023"` a `ERROR_MESSAGES` en `domain/errors.py`.
-3. Crear una función equivalente a `application.process_weekly_metrics.process_metric` pero que
+1. Corregir el status code inválido en `upload_file_graph` (`2001` → `201`) y añadir manejo de
+   paginación (`@odata.nextLink`) y de expiración de token — los tres problemas de la lista de
+   arriba que siguen abiertos. Los dos problemas de código restantes (header mal formado,
+   códigos `ERRxx` inconsistentes) ya se corrigieron.
+2. Crear una función equivalente a `application.process_weekly_metrics.process_metric` pero que
    reciba un `GraphContext` en vez de rutas `Path`, y use `sharepoint_client`/`graph_auth` en
    vez de `storage`/parte de `excel_reader` — sin tocar `domain/business_rules.py`, que ya es
    agnóstico de origen de datos.
-4. Decidir de dónde salen `tenant_id`, `client_id`, `client_secret`, `site_id`, `drive_id` en
+3. Decidir de dónde salen `tenant_id`, `client_id`, `client_secret`, `site_id`, `drive_id` en
    ejecución real (variables de entorno es lo estándar — hoy no hay ningún `.env` ni lectura de
    `os.environ` en el proyecto).
-5. (Opcional, diseño más limpio) Definir un **puerto** (una interfaz abstracta, en Python
+4. (Opcional, diseño más limpio) Definir un **puerto** (una interfaz abstracta, en Python
    típicamente con `typing.Protocol`) del tipo `FileSource` con métodos `list_files()`,
    `read_file()`, `write_file()`, que tanto `storage.py`+`excel_reader.py`/`excel_write.py` como
    `graph_auth.py`+`sharepoint_client.py` implementen. Hoy `application/process_weekly_metrics.py`
