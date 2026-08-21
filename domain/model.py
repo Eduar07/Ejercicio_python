@@ -19,6 +19,8 @@ class EmployeeMetric:
     comments: str
     color_hours_day: str = ""
     color_passive: str = ""
+    color_active_hrs: str = ""
+    color_total_hours: str = ""
     source_file: str = ""
 
 @dataclass

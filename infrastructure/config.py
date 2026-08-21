@@ -55,6 +55,7 @@ OUTPUT_COLUMNS = [
 COLORS = {
     "green": "63BE7B",
     "red": "F8696B",
+    "yellow": "ffd555"
 }
 
 STATUSES = {

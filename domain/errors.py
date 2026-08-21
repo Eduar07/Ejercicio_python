@@ -16,7 +16,7 @@ ERROR_MESSAGES = {
     "ERR020": "Could not authenticate with Graph",
     "ERR021": "Could not list files from SharePoint",
     "ERR022": "Could not download file from SharePoint",
-    "ERR023": "Could not upload file to SharePoint",
+    "ERR024": "Could not resolve SharePoint site or drive"
 }
 
 

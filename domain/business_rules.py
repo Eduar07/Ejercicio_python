@@ -4,7 +4,7 @@ from datetime import date
 from datetime import timedelta
 
 
-from domain.constants import HOURS_PER_DAY_THRESHOLD, PASSIVE_HOURS_THRESHOLD,DEPARTMENT,GOALS
+from domain.constants import PASSIVE_HOURS_THRESHOLD,DEPARTMENT,GOALS,HOURS_PER_DAY_GREEN_THRESHOLD,HOURS_PER_DAY_RED_THRESHOLD
 
 
 def normalize_name(name: str) -> str:
@@ -17,10 +17,12 @@ def normalize_name(name: str) -> str:
 def calculate_productive_color(hours_per_day: float | str) -> str:
     if hours_per_day == "#N/A":
         return "none"
-    if hours_per_day >= HOURS_PER_DAY_THRESHOLD:
+    if hours_per_day < HOURS_PER_DAY_RED_THRESHOLD:
+        return "red"
+    elif hours_per_day < HOURS_PER_DAY_GREEN_THRESHOLD:
+        return "yellow"
+    else:
         return "green"
-    return "red"
-
 
 def calculate_passive_status(passive_hours: float | str) -> str:
     if passive_hours == "#N/A":
@@ -59,6 +61,9 @@ def apply_business_rules(
     employees: list[EmployeeMetric]) -> list[EmployeeMetric]:
     for employee in employees:
 
+        employee.goal = calculate_goal(employee.active_days)
+
+
         employee.color_hours_day = calculate_productive_color(
             employee.hours_per_day
         )
@@ -67,6 +72,17 @@ def apply_business_rules(
             employee.productive_passive_hours
         )
 
+        employee.color_active_hrs = calculate_active_hours_color(
+            employee.productive_active_hours,
+            employee.active_days
+        )
+
+        employee.color_total_hours = calculate_total_hours_color(
+            employee.total_hours,
+            employee.active_days,
+            employee.goal
+        )
+    
     return employees
 
 
@@ -81,7 +97,7 @@ def build_placeholder_employees(master_employees: list[MasterEmployee]) -> list[
             productive_passive_hours=None,
             total_hours=None,
             active_days=None,
-            goal=GOALS["weekly"],
+            goal=None,
             hours_per_day=None,
             comments="",
             source_file="",
@@ -99,3 +115,36 @@ def split_cross_month_range(
     closing_end = next_month_first_day - timedelta(days=1)
     opening_start = next_month_first_day
     return week_start, closing_end, opening_start, week_end
+
+
+def calculate_goal(active_days: int) -> float:
+    if active_days == "#N/A":
+        return 0
+    goal = active_days * GOALS["daily"]
+    return goal
+
+
+def calculate_active_hours_color(active_hours: float | str, active_days: int) -> str:
+    if active_hours == "#N/A":
+        return "none"
+
+    threshold = HOURS_PER_DAY_RED_THRESHOLD * active_days
+
+    if active_hours < threshold:
+        return "red"
+    return "green"
+
+
+def calculate_total_hours_color(total_hours: float | str, active_days: int, goal: float) -> str:
+    if total_hours == "#N/A":
+        return "none"
+
+    threshold = HOURS_PER_DAY_RED_THRESHOLD * active_days
+
+
+    if total_hours < threshold:
+        return "red"
+    elif threshold <= total_hours <= goal:
+        return "yellow"
+    else:
+        return "green"

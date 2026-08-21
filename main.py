@@ -32,7 +32,7 @@ from domain.model import LogEntry
 
 def main() -> None:
 
-    weekly_file = Path("data/Input/AT 05.04 - 05.08.xlsx")
+    weekly_file = Path("data/Input/AT 05.11 - 05.15.xlsx")
     master_file = Path("data/Input/AT_Employees.xlsx")
 
     try:

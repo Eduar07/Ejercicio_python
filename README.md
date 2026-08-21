@@ -112,7 +112,7 @@ cumple sin excepciones.
 sequenceDiagram
     participant U as "Operador / cron"
     participant Main as main.py
-    participant Storage as storage.py
+    participant Storage as storage.py 
     participant Reader as excel_reader.py
     participant Rules as business_rules.py
     participant Writer as excel_write.py
@@ -192,7 +192,7 @@ class EmployeeMetric:
     productive_passive_hours: float
     total_hours: float
     active_days: int
-    goal: float                        # meta de horas (viene del propio Excel semanal)
+    goal: float                        
     hours_per_day: float                # horas productivas / días activos — usado para el semáforo
     comments: str
     color_hours_day: str = ""          # "green" | "red" | "none" — lo llena business_rules.py
@@ -299,7 +299,7 @@ Sin esto, cada módulo inventaría su propia forma de fallar (`raise ValueError(
 `raise FileNotFoundError(...)` allá, `return None` en otro lado) y quien consuma el error
 tendría que adivinar qué pasó. Este archivo estandariza: **todo error de negocio o de
 infraestructura conocido se reporta con un código fijo, un mensaje fijo y un detalle
-específico.**
+específico.**  
 
 ### Dependencias
 Ninguna del proyecto — es la base sobre la que todo lo demás construye su manejo de errores.

@@ -115,10 +115,15 @@ def apply_colors(worksheet, employees: list[EmployeeMetric], start_row: int) -> 
 
     red_fill = PatternFill(fill_type="solid", fgColor=COLORS["red"])
 
+    yellow_fill = PatternFill(fill_type="solid", fgColor=COLORS["yellow"])
+
     for row_number, employee in enumerate(employees, start=start_row + 2):
 
         if employee.color_hours_day == "green":
             worksheet.cell(row=row_number, column=HOURS_DAY_COLUMN).fill = green_fill
+
+        elif employee.color_hours_day == "yellow":
+            worksheet.cell(row=row_number, column=HOURS_DAY_COLUMN).fill = yellow_fill
 
         elif employee.color_hours_day == "red":
             worksheet.cell(row=row_number, column=HOURS_DAY_COLUMN).fill = red_fill
@@ -135,6 +140,26 @@ def apply_colors(worksheet, employees: list[EmployeeMetric], start_row: int) -> 
         elif employee.color_passive == "none":
             pass
 
+        if employee.color_active_hrs == "green":
+            worksheet.cell(row=row_number, column=PRODUCTIVE_ACTIVE_COLUMN).fill = green_fill
+
+        elif employee.color_active_hrs == "red":
+            worksheet.cell(row=row_number, column=PRODUCTIVE_ACTIVE_COLUMN).fill = red_fill
+        
+        elif employee.color_active_hrs == "none":
+            pass
+
+        if employee.color_total_hours == "green":
+            worksheet.cell(row=row_number, column=TOTAL_PRODUCTIVE_COLUMN).fill = green_fill
+
+        elif employee.color_total_hours == "yellow":
+            worksheet.cell(row=row_number, column=TOTAL_PRODUCTIVE_COLUMN).fill = yellow_fill
+
+        elif employee.color_total_hours == "red":
+            worksheet.cell(row=row_number, column=TOTAL_PRODUCTIVE_COLUMN).fill = red_fill
+        
+        elif employee.color_total_hours == "none":
+            pass
 
 def save_workbook(workbook, file_path: Path) -> None:
     try:
