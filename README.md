@@ -26,6 +26,66 @@ Tiene **dos modos de origen/destino de archivos**, pensados como capas intercamb
 
 ---
 
+## 🧭 Ruta de ejecución: `main_graph.py` (modo Graph API — flujo activo hoy)
+
+> Esta sección documenta el camino **real y completo**, en el orden exacto en que corre el
+> código, desde que se ejecuta `python main_graph.py` hasta que termina. Está pensada para
+> copiarse a mano en un cuaderno como mapa de estudio. **Nota de coherencia con el resto del
+> documento**: las secciones "Mapa general de módulos", el diagrama de secuencia y la sección 12
+> más abajo describen el modo Graph API como código aislado "sin conectar" — eso ya no es así,
+> `main_graph.py` conecta todo. Esas secciones quedan como estaban por ahora; esta es la
+> referencia actualizada.
+
+**0. Arranque** — [`main_graph.py:163-164`](main_graph.py#L163-L164) → `if __name__ == "__main__": main()`
+
+**1. Leer argumentos** — [`main_graph.py:75`](main_graph.py#L75) `parse_arguments()` → recibe `--file-name` y `--client-secret` por consola.
+
+**2. Autenticación (Key Vault → Graph)** — [`main_graph.py:78`](main_graph.py#L78) `authenticate_graph()`
+- [`adapters/key_vault_auth.py:13`](adapters/key_vault_auth.py#L13) `get_key_vault_session()` — abre sesión con Azure Key Vault (tenant/client/URL del vault en `infrastructure/graph_config.py`).
+- [`adapters/key_vault_auth.py:21`](adapters/key_vault_auth.py#L21) `get_sharepoint_credentials()` — saca del vault tenant_id, client_id, client_secret de SharePoint.
+- [`adapters/graph_auth.py:5`](adapters/graph_auth.py#L5) `get_access_token()` — MSAL pide el token de acceso a Microsoft Graph.
+
+**3. Construir contexto de Graph** — [`main_graph.py:80`](main_graph.py#L80) `build_context()`
+- [`adapters/sharepoint_client.py:104`](adapters/sharepoint_client.py#L104) `get_site_id()`
+- [`adapters/sharepoint_client.py:119`](adapters/sharepoint_client.py#L119) `get_drive_id()`
+- devuelve `GraphContext` (token + site_id + drive_id).
+
+**4. Buscar el archivo semanal en SharePoint** — [`main_graph.py:82-88`](main_graph.py#L82-L88)
+- [`adapters/sharepoint_client.py:14`](adapters/sharepoint_client.py#L14) `list_input_files_graph()` — lista `AT_Internal_Metrics/Input`.
+- filtra por `--file-name`; si no está → `ATError ERR001` (salta directo al paso 12).
+
+**5. Descargar y parsear el archivo semanal** — [`main_graph.py:90-91`](main_graph.py#L90-L91)
+- [`adapters/sharepoint_client.py:35`](adapters/sharepoint_client.py#L35) `download_file_graph()`
+- [`adapters/excel_reader.py:153`](adapters/excel_reader.py#L153) `read_weekly_excel()` → `parse_week_range` → `get_headers` → `validate_headers` → `create_column_map` → `parse_employees` → arma `WeekData`.
+
+**6. Descargar y parsear el maestro de empleados** — [`main_graph.py:93-96`](main_graph.py#L93-L96)
+- [`adapters/sharepoint_client.py:66`](adapters/sharepoint_client.py#L66) `get_file_by_path()` (`AT_Employees.xlsx`)
+- [`adapters/excel_reader.py:128`](adapters/excel_reader.py#L128) `read_excel()` → `get_master_headers` → `validate_master_headers` → `create_column_map` → `parse_master_employees` → lista de `MasterEmployee`.
+
+**7. Reglas de negocio** — [`main_graph.py:98`](main_graph.py#L98) `process_metric_remote()` → [`application/process_weekly_metrics_remote.py:72`](application/process_weekly_metrics_remote.py#L72)
+- [`domain/business_rules.py:35`](domain/business_rules.py#L35) `detect_cross_month()`
+  - **Si cruza de mes:** `handle_cross_month_remote()` crea plantillas vacías en los dos meses y lanza `ATError ERR013`/`ERR015` → salta al paso 12 y **termina ahí**.
+  - **Si no cruza:** [`domain/business_rules.py:40`](domain/business_rules.py#L40) `match_employees()` (normaliza nombres, cruza semanal vs. maestro) → [`domain/business_rules.py:60`](domain/business_rules.py#L60) `apply_business_rules()` (calcula `goal` y los 4 colores: `hours_day`, `passive`, `active_hrs`, `total_hours`).
+
+**8. Ubicar/crear el libro de salida del mes** — [`main_graph.py:100-118`](main_graph.py#L100-L118) — arma ruta `Output/{año}/{mes}/AT_Metrics_{año}-{mes}.xlsx`; si existe lo descarga y abre, si no, [`adapters/excel_write.py:33`](adapters/excel_write.py#L33) `create_workbook()`.
+
+**9. Verificar semana duplicada** — [`main_graph.py:120-122`](main_graph.py#L120-L122) `week_already_exists()` → si ya existe, imprime mensaje y `return` (fin normal, sin escribir nada).
+
+**10. Escribir el bloque semanal** (todo en `adapters/excel_write.py`) — [`main_graph.py:124-133`](main_graph.py#L124-L133), en este orden: `get_next_block_start_row` → `write_week_range` → `write_headers` → `apply_column_colors` → `apply_header_font` → `set_column_width` → `write_employees` → `apply_colors` → `apply_table_borders`.
+
+**11. Guardar y subir** — [`main_graph.py:135-139`](main_graph.py#L135-L139) → guarda el workbook en memoria (`io.BytesIO`) y [`adapters/sharepoint_client.py:52`](adapters/sharepoint_client.py#L52) `upload_file_graph()` lo sube al Output. **Fin del camino feliz.**
+
+**12. Manejo de errores** (`except ATError`) — [`main_graph.py:141-160`](main_graph.py#L141-L160) — arma `LogEntry`, define `status` (`ERR015`→SUCCESS, `ERR013`→PENDING, cualquier otro→ERROR), y [`adapters/logger.py:47`](adapters/logger.py#L47) `write_log_entry_remote()` sube el log a `AT_Internal_Metrics/Parametric Files/AT_Process_Log_{año}.xlsx`, luego re-lanza la excepción.
+
+**Resumen de una línea por capa:**
+`main_graph.py` (orquesta) → **auth** (`key_vault_auth` → `graph_auth`) → **Graph context** (`sharepoint_client`) → **leer Excel** (`excel_reader`) → **reglas de negocio** (`process_weekly_metrics_remote` → `business_rules`) → **escribir Excel** (`excel_write`) → **subir a SharePoint** (`sharepoint_client`) → **log si hay error** (`logger`).
+
+Los archivos `domain/model.py`, `domain/errors.py`, `domain/constants.py`, `infrastructure/config.py` y `infrastructure/graph_config.py` no están en la secuencia porque son transversales: definen datos, errores y constantes que todas las capas usan.
+
+`main.py` / `application/process_weekly_metrics.py` son la versión local/legacy (lee y escribe en `data/` en vez de SharePoint) — no forman parte de esta ruta.
+
+---
+
 ## Mapa general de módulos (todos, incluyendo Graph API sin conectar)
 
 ```mermaid
