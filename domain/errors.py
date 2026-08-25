@@ -16,7 +16,8 @@ ERROR_MESSAGES = {
     "ERR020": "Could not authenticate with Graph",
     "ERR021": "Could not list files from SharePoint",
     "ERR022": "Could not download file from SharePoint",
-    "ERR024": "Could not resolve SharePoint site or drive"
+    "ERR024": "Could not resolve SharePoint site or drive",
+    "ERR025": "File AT_Internal_Metrics/Parametric Files/AT_Employees.xlsx not found",
 }
 
 
