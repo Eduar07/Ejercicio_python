@@ -3,7 +3,7 @@ import io
 import openpyxl
 from datetime import datetime
 
-from infrastructure.graph_config import GraphCredentials
+from infrastructure.graph_config import GraphCredentials, BASE_FOLDER
 from adapters.key_vault_auth import get_key_vault_session, get_sharepoint_credentials
 from adapters.graph_auth import get_access_token
 
@@ -15,6 +15,7 @@ from adapters.sharepoint_client import (
     download_file_graph,
     upload_file_graph,
     get_file_by_path,
+    build_output_path,
 )
 from adapters.excel_reader import read_weekly_excel, read_excel
 from adapters.excel_write import (
@@ -60,6 +61,13 @@ def authenticate_graph(vault_client_secret: str) -> tuple[str, GraphCredentials]
 
 
 def build_context(access_token: str) -> GraphContext:
+    # site_id identifies the SharePoint site itself (VMC-RPA), resolved from
+    # its hostname + site path. drive_id identifies the specific document
+    # library ("Shared Documents") inside that site, since a site can host
+    # more than one drive. Both are required by every Graph API call below.
+    # BASE_FOLDER ("Development/IT/AT_Internal_Metrics") is the folder path
+    # *within* that drive where all Input/Output/Parametric Files live, so
+    # every folder/file path used later is built as f"{BASE_FOLDER}/...".
     site_id = get_site_id(access_token)
     drive_id = get_drive_id(access_token, site_id)
 
@@ -79,7 +87,7 @@ def main() -> None:
 
         context = build_context(access_token)
 
-        input_files = list_input_files_graph(context, "AT_Internal_Metrics/Input")
+        input_files = list_input_files_graph(context, f"{BASE_FOLDER}/Input")
         matching = [f for f in input_files if f["name"] == args.file_name]
 
         if not matching:
@@ -91,20 +99,14 @@ def main() -> None:
         week_data = read_weekly_excel(weekly_bytes)
 
         master_bytes = get_file_by_path(
-            context, "AT_Internal_Metrics/Parametric Files/AT_Employees.xlsx"
+            context, f"{BASE_FOLDER}/Parametric Files/AT_Employees.xlsx"
         )
         master_employees = read_excel(master_bytes)
 
         week_data = process_metric_remote(context, week_data, master_employees)
 
-        month_folder = (
-            f"AT_Internal_Metrics/Output/"
-            f"{week_data.week_start.year}/{week_data.week_start.month:02d}"
-        )
-
-        month_file_name = (
-            f"AT_Metrics_{week_data.week_start.year}-"
-            f"{week_data.week_start.month:02d}.xlsx"
+        month_folder, month_file_name = build_output_path(
+            week_data.week_start.year, week_data.week_start.month
         )
 
         month_path = f"{month_folder}/{month_file_name}"
