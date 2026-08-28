@@ -1,20 +1,22 @@
-from pathlib import Path
-from datetime import date
-
-import openpyxl
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Side, Font, PatternFill
+from openpyxl.styles import Alignment
+from openpyxl.styles import Border, Side
+from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
-
-from domain.errors import ATError
-from domain.model import EmployeeMetric
 from infrastructure.config import (
     OUTPUT_SHEET_NAME,
     OUTPUT_COLUMNS,
+    OUTPUT_START_ROW,
     COLUMN_WIDTHS,
     YELLOW_FILL_COLOR,
     BLUE_FILL_COLOR,
     YELLOW_COLUMNS,
+    HEADER_ROW_OUTPUT,
+)
+from domain.model import EmployeeMetric
+from datetime import date
+from openpyxl.styles import PatternFill
+from infrastructure.config import (
     COLORS,
     PASSIVE_COLUMN,
     HOURS_DAY_COLUMN,
@@ -25,25 +27,18 @@ from infrastructure.config import (
 
 
 def create_workbook():
+
     workbook = Workbook()
+
     worksheet = workbook.active
+
     worksheet.title = OUTPUT_SHEET_NAME
 
     return workbook, worksheet
 
 
-def load_output_workbook(file_path: Path):
-    workbook = openpyxl.load_workbook(file_path)
-    worksheet = workbook[OUTPUT_SHEET_NAME]
-
-    return workbook, worksheet
-
-
 def write_week_range(
-    worksheet,
-    week_start: date,
-    week_end: date,
-    start_row: int,
+    worksheet, week_start: date, week_end: date, start_row: int
 ) -> None:
 
     week_text = (
@@ -52,64 +47,29 @@ def write_week_range(
         f"{week_end.strftime('%m/%d/%Y')}"
     )
 
-    week_cell = worksheet.cell(
-        row=start_row,
-        column=1,
-        value=week_text,
-    )
+    week_cell = worksheet.cell(row=start_row, column=1, value=week_text)
 
-    week_cell.font = Font(
-        bold=True,
-        color="FFFFFF",
-        size=16,
-    )
+    week_font = Font(bold=True, color="FFFFFF", size=16)
 
-    week_cell.fill = PatternFill(
-        fill_type="solid",
-        fgColor="000000",
-    )
+    week_fill = PatternFill(fill_type="solid", fgColor="FF000000")
 
-    week_cell.alignment = Alignment(
-        horizontal="center",
-        vertical="center",
-    )
+    week_cell.font = week_font
+    week_cell.fill = week_fill
+    week_cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    last_column_letter = get_column_letter(
-        len(OUTPUT_COLUMNS)
-    )
+    last_column_letter = get_column_letter(len(OUTPUT_COLUMNS))
 
-    worksheet.merge_cells(
-        f"A{start_row}:{last_column_letter}{start_row}"
-    )
+    worksheet.merge_cells(f"A{start_row}:{last_column_letter}{start_row}")
 
 
-def write_headers(
-    worksheet,
-    start_row: int,
-) -> None:
-
-    for column, header in enumerate(
-        OUTPUT_COLUMNS,
-        start=1,
-    ):
-        worksheet.cell(
-            row=start_row + 1,
-            column=column,
-            value=header,
-        )
+def write_headers(worksheet, start_row: int) -> None:
+    for column, header in enumerate(OUTPUT_COLUMNS, start=1):
+        worksheet.cell(row=start_row + 1, column=column, value=header)
 
 
-def write_employees(
-    worksheet,
-    employees: list[EmployeeMetric],
-    start_row: int,
-) -> None:
+def write_employees(worksheet, employees: list[EmployeeMetric], start_row: int) -> None:
 
-    for row_number, employee in enumerate(
-        employees,
-        start=start_row + 2,
-    ):
-
+    for row_number, employee in enumerate(employees, start=start_row + 2):
         values = [
             employee.name,
             employee.department,
@@ -122,89 +82,73 @@ def write_employees(
             employee.comments,
         ]
 
-        for column, value in enumerate(
-            values,
-            start=1,
-        ):
-            cell = worksheet.cell(
-                row=row_number,
-                column=column,
-                value=value,
-            )
+        for column, value in enumerate(values, start=1):
+            cell = worksheet.cell(row=row_number, column=column, value=value)
 
-            if column in (
-                HOURS_DAY_COLUMN,
-                PRODUCTIVE_ACTIVE_COLUMN,
-                PASSIVE_COLUMN,
-                TOTAL_PRODUCTIVE_COLUMN,
-            ):
+            if column == HOURS_DAY_COLUMN:
+                cell.number_format = "0.0"
+
+            if column == PRODUCTIVE_ACTIVE_COLUMN:
+                cell.number_format = "0.0"
+
+            if column == PASSIVE_COLUMN:
+                cell.number_format = "0.0"
+
+            if column == TOTAL_PRODUCTIVE_COLUMN:
                 cell.number_format = "0.0"
 
 
-def apply_colors(
-    worksheet,
-    employees: list[EmployeeMetric],
-    start_row: int,
-) -> None:
+def apply_colors(worksheet, employees: list[EmployeeMetric], start_row: int) -> None:
 
-    green_fill = PatternFill(
-        fill_type="solid",
-        fgColor=COLORS["green"],
-    )
+    green_fill = PatternFill(fill_type="solid", fgColor=COLORS["green"])
 
-    red_fill = PatternFill(
-        fill_type="solid",
-        fgColor=COLORS["red"],
-    )
+    red_fill = PatternFill(fill_type="solid", fgColor=COLORS["red"])
 
-    yellow_fill = PatternFill(
-        fill_type="solid",
-        fgColor=COLORS["yellow"],
-    )
+    yellow_fill = PatternFill(fill_type="solid", fgColor=COLORS["yellow"])
 
-    for row_number, employee in enumerate(
-        employees,
-        start=start_row + 2,
-    ):
+    for row_number, employee in enumerate(employees, start=start_row + 2):
 
-        color_mapping = {
-            HOURS_DAY_COLUMN: employee.color_hours_day,
-            PASSIVE_COLUMN: employee.color_passive,
-            PRODUCTIVE_ACTIVE_COLUMN: employee.color_active_hrs,
-            TOTAL_PRODUCTIVE_COLUMN: employee.color_total_hours,
-        }
+        if employee.color_hours_day == "green":
+            worksheet.cell(row=row_number, column=HOURS_DAY_COLUMN).fill = green_fill
 
-        for column, color in color_mapping.items():
-            if color == "green":
-                worksheet.cell(
-                    row=row_number,
-                    column=column,
-                ).fill = green_fill
-            elif color == "yellow":
-                worksheet.cell(
-                    row=row_number,
-                    column=column,
-                ).fill = yellow_fill
-            elif color == "red":
-                worksheet.cell(
-                    row=row_number,
-                    column=column,
-                ).fill = red_fill
+        elif employee.color_hours_day == "yellow":
+            worksheet.cell(row=row_number, column=HOURS_DAY_COLUMN).fill = yellow_fill
 
+        elif employee.color_hours_day == "red":
+            worksheet.cell(row=row_number, column=HOURS_DAY_COLUMN).fill = red_fill
 
-def save_workbook(
-    workbook,
-    file_path: Path,
-) -> None:
+        elif employee.color_hours_day == "none":
+            pass
 
-    try:
-        workbook.save(file_path)
-    except Exception:
-        raise ATError(
-            "ERR014",
-            f"Could not save the file {file_path.name}",
-        )
+        if employee.color_passive == "green":
+            worksheet.cell(row=row_number, column=PASSIVE_COLUMN).fill = green_fill
 
+        elif employee.color_passive == "red":
+            worksheet.cell(row=row_number, column=PASSIVE_COLUMN).fill = red_fill
+
+        elif employee.color_passive == "none":
+            pass
+
+        if employee.color_active_hrs == "green":
+            worksheet.cell(row=row_number, column=PRODUCTIVE_ACTIVE_COLUMN).fill = green_fill
+
+        elif employee.color_active_hrs == "red":
+            worksheet.cell(row=row_number, column=PRODUCTIVE_ACTIVE_COLUMN).fill = red_fill
+        
+        elif employee.color_active_hrs == "none":
+            pass
+
+        if employee.color_total_hours == "green":
+            worksheet.cell(row=row_number, column=TOTAL_PRODUCTIVE_COLUMN).fill = green_fill
+
+        elif employee.color_total_hours == "yellow":
+            worksheet.cell(row=row_number, column=TOTAL_PRODUCTIVE_COLUMN).fill = yellow_fill
+
+        elif employee.color_total_hours == "red":
+            worksheet.cell(row=row_number, column=TOTAL_PRODUCTIVE_COLUMN).fill = red_fill
+        
+        elif employee.color_total_hours == "none":
+            pass
 
 def set_column_width(worksheet) -> None:
     for column, width in COLUMN_WIDTHS.items():
@@ -212,73 +156,38 @@ def set_column_width(worksheet) -> None:
         worksheet.column_dimensions[letter].width = width
 
 
-def apply_column_colors(
-    worksheet,
-    start_row: int,
-) -> None:
+def apply_column_colors(worksheet, start_row: int) -> None:
 
-    yellow_fill = PatternFill(
-        fill_type="solid",
-        fgColor=YELLOW_FILL_COLOR,
-    )
+    yellow_fill = PatternFill(fill_type="solid", fgColor=YELLOW_FILL_COLOR)
 
-    blue_fill = PatternFill(
-        fill_type="solid",
-        fgColor=BLUE_FILL_COLOR,
-    )
+    blue_fill = PatternFill(fill_type="solid", fgColor=BLUE_FILL_COLOR)
 
-    for column in range(
-        1,
-        len(OUTPUT_COLUMNS) + 1,
-    ):
-        fill = (
-            yellow_fill
-            if column in YELLOW_COLUMNS
-            else blue_fill
-        )
+    for column in range(1, len(OUTPUT_COLUMNS) + 1):
 
-        worksheet.cell(
-            row=start_row + 1,
-            column=column,
-        ).fill = fill
+        if column in YELLOW_COLUMNS:
+            fill = yellow_fill
+        else:
+            fill = blue_fill
+
+        worksheet.cell(row=start_row + 1, column=column).fill = fill
 
 
-def apply_header_font(
-    worksheet,
-    start_row: int,
-) -> None:
+def apply_header_font(worksheet, start_row: int) -> None:
 
-    header_font = Font(
-        bold=True,
-        color="FFFFFF",
-    )
+    header_font = Font(bold=True, color="FFFFFF")
+    header_alignment = Alignment(horizontal="center", vertical="center")
 
-    header_alignment = Alignment(
-        horizontal="center",
-        vertical="center",
-    )
+    worksheet.row_dimensions[start_row + 1].height = 25
 
-    worksheet.row_dimensions[
-        start_row + 1
-    ].height = 25
-
-    for column in range(
-        1,
-        len(OUTPUT_COLUMNS) + 1,
-    ):
-        cell = worksheet.cell(
-            row=start_row + 1,
-            column=column,
-        )
+    for column in range(1, len(OUTPUT_COLUMNS) + 1):
+        cell = worksheet.cell(row=start_row + 1, column=column)
 
         cell.font = header_font
         cell.alignment = header_alignment
 
 
 def apply_table_borders(
-    worksheet,
-    employees: list[EmployeeMetric],
-    start_row: int,
+    worksheet, employees: list[EmployeeMetric], start_row: int
 ) -> None:
 
     thin_border = Border(
@@ -290,32 +199,18 @@ def apply_table_borders(
 
     last_row = start_row + len(employees) + 1
 
-    for row in range(
-        start_row,
-        last_row + 1,
-    ):
-        for column in range(
-            1,
-            len(OUTPUT_COLUMNS) + 1,
-        ):
-            worksheet.cell(
-                row=row,
-                column=column,
-            ).border = thin_border
+    for row in range(start_row, last_row + 1):
+        for column in range(1, len(OUTPUT_COLUMNS) + 1):
+            worksheet.cell(row=row, column=column).border = thin_border
 
 
 def get_next_block_start_row(worksheet) -> int:
     if worksheet.max_row <= 1:
         return WEEK_ROW_OUTPUT
-
     return worksheet.max_row + 4
 
 
-def week_already_exists(
-    worksheet,
-    week_start: date,
-    week_end: date,
-) -> bool:
+def week_already_exists(worksheet, week_start: date, week_end: date) -> bool:
 
     expected_text = (
         f"Week: "
@@ -331,44 +226,3 @@ def week_already_exists(
     return False
 
 
-def create_empty_week_block(
-    worksheet,
-    week_start: date,
-    week_end: date,
-    placeholder_employees: list[EmployeeMetric],
-) -> bool:
-
-    if week_already_exists(
-        worksheet,
-        week_start,
-        week_end,
-    ):
-        return
-
-    start_row = get_next_block_start_row(worksheet)
-
-    write_week_range(
-        worksheet,
-        week_start,
-        week_end,
-        start_row,
-    )
-
-    write_headers(worksheet, start_row)
-    apply_column_colors(worksheet, start_row)
-    apply_header_font(worksheet, start_row)
-    set_column_width(worksheet)
-
-    write_employees(
-        worksheet,
-        placeholder_employees,
-        start_row,
-    )
-
-    apply_table_borders(
-        worksheet,
-        placeholder_employees,
-        start_row,
-    )
-
-    return True

@@ -8,7 +8,8 @@ class GraphCredentials:
     client_secret: str
     site_id: str = ""
     drive_id: str = ""
-    
+
+
 BASE_FOLDER = "Development/IT/AT_Internal_Metrics"
 
 VAULT_TENANT_ID = "2e8802e0-0b68-49d0-857f-46e74756f974"   

@@ -16,10 +16,12 @@ ERROR_MESSAGES = {
     "ERR020": "Could not authenticate with Graph",
     "ERR021": "Could not list files from SharePoint",
     "ERR022": "Could not download file from SharePoint",
+    "ERR023": "Could not upload file to SharePoint",
     "ERR024": "Could not resolve SharePoint site or drive",
-    "ERR025": "File AT_Internal_Metrics/Parametric Files/AT_Employees.xlsx not found",
+    "ERR025": "Master employees file not found in SharePoint",
+    "ERR026": "File is locked, likely open in another session — close it and retry",
+    "ERR027": "Could not delete file from SharePoint",
 }
-
 
 class ATError(Exception):
     def __init__(self, code, detail):

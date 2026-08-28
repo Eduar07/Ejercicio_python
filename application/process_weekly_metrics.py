@@ -1,79 +1,66 @@
-from pathlib import Path
-from domain.model import WeekData
+"""
+Application layer orchestrator for the weekly metrics use case.
+Depends only on domain + ports — no adapter or infrastructure imports.
+"""
+from domain.model import WeekData, RawInputPair
 from domain.errors import ATError
-
-from adapters.excel_reader import (
-    read_weekly_excel,
-    read_excel
-)
-
-from adapters.excel_write import (
-    create_workbook,
-    load_output_workbook,
-    create_empty_week_block,
-    save_workbook,
-)
-
-from adapters.storage import (
-    get_output_path,
-    get_next_month_output_path,
-    output_exists,
-)
 
 from domain.business_rules import (
     match_employees,
     apply_business_rules,
     detect_cross_month,
-    split_cross_month_range,
     build_placeholder_employees,
+    split_cross_month_range,
 )
-def handle_cross_month(weekly_data: WeekData, master_file: Path) -> bool:
-    master_employees = read_excel(master_file)
-    placeholders = build_placeholder_employees(master_employees)
 
-    closing_start, closing_end, opening_start, opening_end = split_cross_month_range(
-        weekly_data.week_start, weekly_data.week_end
+from application.ports.raw_input_port import RawInputPort
+from application.ports.master_employee_port import MasterEmployeePort
+from application.ports.metrics_output_port import MetricsOutputPort
+
+
+def process_weekly_metrics(
+    pair: RawInputPair,
+    raw_input: RawInputPort,
+    master_employees_reader: MasterEmployeePort,
+    metrics_output: MetricsOutputPort,
+) -> str | None:
+    """
+    Runs the full weekly metrics flow for an already-identified raw pair:
+    read raw hours, match against the master list, apply business rules,
+    write the week block to the monthly output, and archive the raw files.
+
+    Returns a status message when there's nothing to do (week already
+    written); returns None on a normal successful write. Raises ATError
+    (ERR013/ERR015) when the week crosses two months.
+    """
+    employees = raw_input.read_employee_metrics(pair)
+
+    week_data = WeekData(
+        week_start=pair.week_start,
+        week_end=pair.week_end,
+        year=pair.week_start.year,
+        employees=employees,
     )
 
-    closing_path = get_output_path(closing_start.year, closing_start.month)
-    opening_path = get_next_month_output_path(
-        weekly_data.week_start.year, weekly_data.week_start.month
-    )
+    master_employees = master_employees_reader.get_master_employees()
 
-    blocks = [
-        (closing_path, closing_start, closing_end),
-        (opening_path, opening_start, opening_end),
-    ]
-
-    any_created = False
-
-    for file_path, block_start, block_end in blocks:
-        if output_exists(file_path):
-            workbook, worksheet = load_output_workbook(file_path)
-        else:
-            workbook, worksheet = create_workbook()
-
-        created = create_empty_week_block(worksheet, block_start, block_end, placeholders)
-        if created:
-            any_created = True
-
-        save_workbook(workbook, file_path)
-
-    return any_created
-
-def process_metric(weekly_file: Path, master_file: Path) -> WeekData:
-
-    weekly_data = read_weekly_excel(weekly_file)
-
-    cross_month = detect_cross_month(
-        weekly_data.week_start,
-        weekly_data.week_end
-    )
+    cross_month = detect_cross_month(week_data.week_start, week_data.week_end)
 
     if cross_month:
-        templates_created = handle_cross_month(weekly_data, master_file)
+        placeholders = build_placeholder_employees(master_employees)
 
-        if templates_created:
+        closing_start, closing_end, opening_start, opening_end = split_cross_month_range(
+            week_data.week_start, week_data.week_end
+        )
+
+        written_closing = metrics_output.write_week(
+            closing_start.year, closing_start.month, closing_start, closing_end, placeholders
+        )
+        written_opening = metrics_output.write_week(
+            opening_start.year, opening_start.month, opening_start, opening_end, placeholders
+        )
+
+        if written_closing or written_opening:
             raise ATError(
                 "ERR013",
                 "The weekly file crosses two months — templates created for manual completion"
@@ -84,15 +71,20 @@ def process_metric(weekly_file: Path, master_file: Path) -> WeekData:
                 "The weekly file crosses two months — templates already existed, nothing changed"
             )
 
-    master_employees = read_excel(master_file)
+    matched_employees = match_employees(week_data.employees, master_employees)
+    week_data.employees = apply_business_rules(matched_employees)
 
-    matched_employees = match_employees(
-        weekly_data.employees,
-        master_employees
+    written = metrics_output.write_week(
+        week_data.week_start.year,
+        week_data.week_start.month,
+        week_data.week_start,
+        week_data.week_end,
+        week_data.employees,
     )
 
-    weekly_data.employees = apply_business_rules(
-        matched_employees
-    )
+    if not written:
+        return "Week already exists. Nothing to process."
 
-    return weekly_data
+    raw_input.archive_pair(pair)
+
+    return None

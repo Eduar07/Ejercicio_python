@@ -44,3 +44,10 @@ class MasterEmployee:
     name: str
     email: str
     status: str
+
+@dataclass
+class RawInputPair:
+    prod_by_user_filename: str
+    user_details_filename: str
+    week_start: date
+    week_end: date

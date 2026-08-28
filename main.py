@@ -1,113 +1,76 @@
-from pathlib import Path
+import argparse
 from datetime import datetime
 
-from application.process_weekly_metrics import process_metric
-
-from adapters.storage import (
-    output_exists,
-    get_output_path,
-)
-
-from adapters.logger import write_log_entry
-
-from adapters.excel_write import (
-    create_workbook,
-    write_week_range,
-    write_headers,
-    write_employees,
-    apply_column_colors,
-    apply_header_font,
-    set_column_width,
-    apply_colors,
-    apply_table_borders,
-    get_next_block_start_row,
-    load_output_workbook,
-    week_already_exists,
-    save_workbook,
-)
-
-from domain.errors import ATError
 from domain.model import LogEntry
+from domain.errors import ATError
+
+from infrastructure.graph_config import GraphCredentials
+
+from adapters.key_vault_auth import get_key_vault_session, get_sharepoint_credentials
+from adapters.graph_auth import get_access_token
+from adapters.sharepoint_client import GraphContext, get_site_id, get_drive_id
+from adapters.sharepoint_raw_input_adapter import SharePointRawInputAdapter
+from adapters.sharepoint_master_employee_adapter import SharePointMasterEmployeeAdapter
+from adapters.sharepoint_metrics_output_adapter import SharePointMetricsOutputAdapter
+from adapters.sharepoint_log_adapter import SharePointExecutionLogAdapter
+
+from application.process_weekly_metrics import process_weekly_metrics
+
+
+def parse_arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--file-name", required=True, help="Triggering file name (not used to decide what to read — script re-lists RawInputs itself)")
+    parser.add_argument("--client-secret", required=True, help="Key Vault client secret")
+    return parser.parse_args()
+
+
+def authenticate_graph(vault_client_secret: str) -> tuple[str, GraphCredentials]:
+    session = get_key_vault_session(vault_client_secret)
+    credentials = get_sharepoint_credentials(session)
+
+    access_token = get_access_token(
+        credentials.tenant_id,
+        credentials.client_id,
+        credentials.client_secret,
+    )
+
+    return access_token, credentials
+
+
+def build_context(access_token: str) -> GraphContext:
+    site_id = get_site_id(access_token)
+    drive_id = get_drive_id(access_token, site_id)
+
+    return GraphContext(
+        access_token=access_token,
+        site_id=site_id,
+        drive_id=drive_id,
+    )
 
 
 def main() -> None:
-
-    weekly_file = Path("data/Input/AT 05.11 - 05.15.xlsx")
-    master_file = Path("data/Input/AT_Employees.xlsx")
+    args = parse_arguments()
+    context = None
+    pair = None
 
     try:
+        access_token, credentials = authenticate_graph(args.client_secret)
+        context = build_context(access_token)
 
-        week_data = process_metric(
-            weekly_file,
-            master_file,
-        )
+        raw_input = SharePointRawInputAdapter(context)
+        master_employees_reader = SharePointMasterEmployeeAdapter(context)
+        metrics_output = SharePointMetricsOutputAdapter(context)
 
-        output_file = get_output_path(
-            week_data.week_start.year,
-            week_data.week_start.month,
-        )
+        pair = raw_input.find_next_pair()
 
-        if output_exists(output_file):
-            workbook, worksheet = load_output_workbook(output_file)
-        else:
-            workbook, worksheet = create_workbook()
-
-        if week_already_exists(
-            worksheet,
-            week_data.week_start,
-            week_data.week_end,
-        ):
-            print("Week already exists. Nothing to process.")
+        if pair is None:
+            print("Raw pair not ready yet — waiting for the matching file.")
             return
 
-        start_row = get_next_block_start_row(worksheet)
+        result = process_weekly_metrics(pair, raw_input, master_employees_reader, metrics_output)
 
-        write_week_range(
-            worksheet,
-            week_data.week_start,
-            week_data.week_end,
-            start_row,
-        )
-
-        write_headers(
-            worksheet,
-            start_row,
-        )
-
-        apply_column_colors(
-            worksheet,
-            start_row,
-        )
-
-        apply_header_font(
-            worksheet,
-            start_row,
-        )
-
-        set_column_width(worksheet)
-
-        write_employees(
-            worksheet,
-            week_data.employees,
-            start_row,
-        )
-
-        apply_colors(
-            worksheet,
-            week_data.employees,
-            start_row,
-        )
-
-        apply_table_borders(
-            worksheet,
-            week_data.employees,
-            start_row,
-        )
-
-        save_workbook(
-            workbook,
-            output_file,
-        )
+        if result:
+            print(result)
 
     except ATError as error:
 
@@ -118,15 +81,20 @@ def main() -> None:
         else:
             status = "ERROR"
 
+        source_name = pair.prod_by_user_filename if pair else "RawInputs (pair not found)"
+
         log_entry = LogEntry(
-            source_file=weekly_file.name,
+            source_file=source_name,
             execution_date=datetime.now(),
             status=status,
             error_message=error.detail,
             error_code=error.code,
         )
 
-        write_log_entry(log_entry)
+        if context is not None:
+            SharePointExecutionLogAdapter(context).write(log_entry)
+        else:
+            print(f"Could not authenticate, cannot upload remote log: {error}")
 
         raise
 
