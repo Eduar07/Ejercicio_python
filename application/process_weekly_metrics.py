@@ -60,6 +60,11 @@ def process_weekly_metrics(
             opening_start.year, opening_start.month, opening_start, opening_end, placeholders
         )
 
+        # El par sin partir ya cumplió su función (detectar el cruce); se archiva acá
+        # para no bloquear find_next_pair() cuando lleguen los pares parciales que van
+        # a completar estas plantillas (ver sharepoint_metrics_output_adapter.write_week).
+        raw_input.archive_pair(pair)
+
         if written_closing or written_opening:
             raise ATError(
                 "ERR013",

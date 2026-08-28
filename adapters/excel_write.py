@@ -24,6 +24,8 @@ from infrastructure.config import (
     TOTAL_PRODUCTIVE_COLUMN,
     WEEK_ROW_OUTPUT,
     DATE_FORMAT,
+    NAME_COLUMN,
+    ACTIVE_DAYS_COLUMN,
 )
 
 
@@ -211,7 +213,7 @@ def get_next_block_start_row(worksheet) -> int:
     return worksheet.max_row + 4
 
 
-def week_already_exists(worksheet, week_start: date, week_end: date) -> bool:
+def find_week_block_start_row(worksheet, week_start: date, week_end: date) -> int | None:
 
     expected_text = (
         f"Week: "
@@ -222,8 +224,36 @@ def week_already_exists(worksheet, week_start: date, week_end: date) -> bool:
     for row in worksheet.iter_rows():
         for cell in row:
             if cell.value == expected_text:
-                return True
+                return cell.row
 
-    return False
+    return None
+
+
+def week_already_exists(worksheet, week_start: date, week_end: date) -> bool:
+    return find_week_block_start_row(worksheet, week_start, week_end) is not None
+
+
+def is_placeholder_block(worksheet, start_row: int) -> bool:
+    """A block is a placeholder when its rows came from build_placeholder_employees()
+    (cross-month templates) — those always have active_days=None, unlike real rows,
+    which always carry a number (0 if missing)."""
+    first_employee_row = start_row + 2
+    return worksheet.cell(row=first_employee_row, column=ACTIVE_DAYS_COLUMN).value is None
+
+
+def clear_employee_rows(worksheet, start_row: int) -> None:
+    """Blanks out the employee rows of a block (value/fill/border), so it can be
+    rewritten in place — used when real data replaces a placeholder block that may
+    have had more rows (a placeholder lists every master employee; real data only
+    lists whoever matched that particular file, so it can only have fewer rows)."""
+    row = start_row + 2
+
+    while worksheet.cell(row=row, column=NAME_COLUMN).value is not None:
+        for column in range(1, len(OUTPUT_COLUMNS) + 1):
+            cell = worksheet.cell(row=row, column=column)
+            cell.value = None
+            cell.fill = PatternFill(fill_type=None)
+            cell.border = Border()
+        row += 1
 
 

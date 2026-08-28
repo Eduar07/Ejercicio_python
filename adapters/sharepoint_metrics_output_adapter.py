@@ -25,7 +25,9 @@ from adapters.excel_write import (
     apply_colors,
     apply_table_borders,
     get_next_block_start_row,
-    week_already_exists,
+    find_week_block_start_row,
+    is_placeholder_block,
+    clear_employee_rows,
 )
 
 
@@ -52,16 +54,29 @@ class SharePointMetricsOutputAdapter(MetricsOutputPort):
         else:
             workbook, worksheet = create_workbook()
 
-        if week_already_exists(worksheet, week_start, week_end):
-            return False
+        existing_start_row = find_week_block_start_row(worksheet, week_start, week_end)
+        incoming_is_placeholder = employees[0].active_days is None if employees else False
 
-        start_row = get_next_block_start_row(worksheet)
+        if existing_start_row is not None:
+            # A block already exists for this week. Only one transition is allowed:
+            # placeholder -> real (a cross-month template getting filled in by the
+            # matching partial-week pair). Anything else — the template being
+            # recreated, or real data already there — is a no-op; real data must
+            # never be overwritten by a placeholder.
+            if is_placeholder_block(worksheet, existing_start_row) and not incoming_is_placeholder:
+                clear_employee_rows(worksheet, existing_start_row)
+                start_row = existing_start_row
+            else:
+                return False
+        else:
+            start_row = get_next_block_start_row(worksheet)
 
-        write_week_range(worksheet, week_start, week_end, start_row)
-        write_headers(worksheet, start_row)
-        apply_column_colors(worksheet, start_row)
-        apply_header_font(worksheet, start_row)
-        set_column_width(worksheet)
+            write_week_range(worksheet, week_start, week_end, start_row)
+            write_headers(worksheet, start_row)
+            apply_column_colors(worksheet, start_row)
+            apply_header_font(worksheet, start_row)
+            set_column_width(worksheet)
+
         write_employees(worksheet, employees, start_row)
         apply_colors(worksheet, employees, start_row)
         apply_table_borders(worksheet, employees, start_row)
