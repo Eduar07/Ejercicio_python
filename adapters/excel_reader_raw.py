@@ -11,6 +11,7 @@ import openpyxl
 
 from domain.model import EmployeeMetric
 from domain.errors import ATError
+from domain.constants import DEPARTMENT
 from infrastructure.config import (
     RAW_HEADER_ROW,
     RAW_START_ROW,
@@ -136,7 +137,7 @@ def build_employee_metrics_from_raw(
 
         employee = EmployeeMetric(
             name=name,
-            department="",  # filled in by match_employees() later
+            department=DEPARTMENT,
             productive_active_hours=active_hours,
             productive_passive_hours=passive_hours,
             total_hours=total_hours,

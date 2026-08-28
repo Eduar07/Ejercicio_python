@@ -5,6 +5,7 @@ from domain.model import LogEntry
 from domain.errors import ATError
 
 from infrastructure.graph_config import GraphCredentials
+from infrastructure.config import STATUSES
 
 from adapters.key_vault_auth import get_key_vault_session, get_sharepoint_credentials
 from adapters.graph_auth import get_access_token
@@ -75,11 +76,11 @@ def main() -> None:
     except ATError as error:
 
         if error.code == "ERR015":
-            status = "SUCCESS"
+            status = STATUSES["success"]
         elif error.code == "ERR013":
-            status = "PENDING"
+            status = STATUSES["pending"]
         else:
-            status = "ERROR"
+            status = STATUSES["error"]
 
         source_name = pair.prod_by_user_filename if pair else "RawInputs (pair not found)"
 

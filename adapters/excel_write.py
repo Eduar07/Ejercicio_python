@@ -23,6 +23,7 @@ from infrastructure.config import (
     PRODUCTIVE_ACTIVE_COLUMN,
     TOTAL_PRODUCTIVE_COLUMN,
     WEEK_ROW_OUTPUT,
+    DATE_FORMAT,
 )
 
 
@@ -43,8 +44,8 @@ def write_week_range(
 
     week_text = (
         f"Week: "
-        f"{week_start.strftime('%m/%d/%Y')} - "
-        f"{week_end.strftime('%m/%d/%Y')}"
+        f"{week_start.strftime(DATE_FORMAT)} - "
+        f"{week_end.strftime(DATE_FORMAT)}"
     )
 
     week_cell = worksheet.cell(row=start_row, column=1, value=week_text)
@@ -214,8 +215,8 @@ def week_already_exists(worksheet, week_start: date, week_end: date) -> bool:
 
     expected_text = (
         f"Week: "
-        f"{week_start.strftime('%m/%d/%Y')} - "
-        f"{week_end.strftime('%m/%d/%Y')}"
+        f"{week_start.strftime(DATE_FORMAT)} - "
+        f"{week_end.strftime(DATE_FORMAT)}"
     )
 
     for row in worksheet.iter_rows():
