@@ -21,6 +21,7 @@ ERROR_MESSAGES = {
     "ERR025": "Master employees file not found in SharePoint",
     "ERR026": "File is locked, likely open in another session — close it and retry",
     "ERR027": "Could not delete file from SharePoint",
+    "ERR028": "Invalid file name — date does not match the expected reporting week pattern",
 }
 
 class ATError(Exception):

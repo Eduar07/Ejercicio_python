@@ -87,9 +87,9 @@ def process_weekly_metrics(
         week_data.employees,
     )
 
+    raw_input.archive_pair(pair)
+
     if not written:
         return "Week already exists. Nothing to process."
-
-    raw_input.archive_pair(pair)
 
     return None

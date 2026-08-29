@@ -5,18 +5,14 @@ Pure — no I/O, no openpyxl.
 """
 from datetime import date, datetime, timedelta
 from typing import Optional
+import calendar 
+from domain.errors import ATError
 
 from domain.model import RawInputPair
 
+import calendar
 
 def parse_prod_by_user_filename(filename: str) -> tuple[date, date]:
-    """
-    Normal week:   "Productivity by User 2026_08_03"
-                   -> week_start = 2026-08-03, week_end = week_start + 4 days
-
-    Partial week:  "Productivity by User 2026_05_29-2026_05_31"
-                   -> week_start = 2026-05-29, week_end = 2026-05-31 (read directly)
-    """
     name_without_extension = filename.replace(".xlsx", "").strip()
     date_part = name_without_extension.split(" ")[-1]
 
@@ -24,8 +20,44 @@ def parse_prod_by_user_filename(filename: str) -> tuple[date, date]:
         start_text, end_text = date_part.split("-")
         week_start = datetime.strptime(start_text, "%Y_%m_%d").date()
         week_end = datetime.strptime(end_text, "%Y_%m_%d").date()
+
+        if week_start.month != week_end.month:
+            raise ATError(
+                "ERR028",
+                "Invalid file name. A partial cross-month file must stay within a single calendar month."
+            )
+
+        if week_start.weekday() == 0:
+            # closing part: must end on the last day of the month
+            last_day = calendar.monthrange(week_end.year, week_end.month)[1]
+            if week_end.day != last_day:
+                raise ATError(
+                    "ERR028",
+                    "Invalid file name. The closing-month partial file must end on the last day of the month."
+                )
+        elif week_end.weekday() == 4:
+            # opening part: must start on the 1st of the month
+            if week_start.day != 1:
+                raise ATError(
+                    "ERR028",
+                    "Invalid file name. The opening-month partial file must start on the first day of the month."
+                )
+        else:
+            raise ATError(
+                "ERR028",
+                "Invalid file name. The date range does not match a valid cross-month week pattern."
+            )
+
     else:
         week_start = datetime.strptime(date_part, "%Y_%m_%d").date()
+
+        if week_start.weekday() != 0:
+            raise ATError(
+                "ERR028",
+                "Invalid file name. The date provided does not represent the start of the reporting week. "
+                "Please use the Monday date for the week being processed."
+            )
+
         week_end = week_start + timedelta(days=4)
 
     return week_start, week_end
